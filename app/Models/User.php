@@ -5,13 +5,15 @@ declare(strict_types=1);
 namespace App\Models;
 
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
+use Filament\Models\Contracts\FilamentUser;
+use Filament\Panel;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Laravel\Sanctum\HasApiTokens;
 
-class User extends Authenticatable
+class User extends Authenticatable implements FilamentUser
 {
     use HasApiTokens, HasFactory, Notifiable;
 
@@ -66,5 +68,17 @@ class User extends Authenticatable
     public function appointments(): HasMany
     {
         return $this->hasMany(Appointment::class, 'buyer_id');
+    }
+
+    /**
+     * Determine if the user can access the admin panel.
+     */
+    public function canAccessPanel(Panel $panel): bool
+    {
+        // Option A: Use your role column (Recommended)
+        // return $this->role === 'admin';
+        
+        // Option B: Hardcode the email you just created in Tinker
+        return true;
     }
 }
