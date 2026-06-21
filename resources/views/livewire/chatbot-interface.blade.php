@@ -49,7 +49,7 @@ new class extends Component {
         $this->message = '';
 
         try {
-            $microserviceUrl = env('AI_MICROSERVICE_URL', 'http://127.0.0.1:8001');
+            $microserviceUrl = config('services.ai_microservice_url', 'http://127.0.0.1:8001');
             $response = Http::timeout(60)->post(rtrim($microserviceUrl, '/') . '/api/chat', [
                 'session_id' => $this->sessionId,
                 'message' => $userMessage,

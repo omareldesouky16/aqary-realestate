@@ -31,4 +31,6 @@ return [
         ],
     ],
 
+    'ai_microservice_url' => env('AI_MICROSERVICE_URL', 'http://127.0.0.1:8001'),
+
 ];
