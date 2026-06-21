@@ -19,6 +19,11 @@ class UserResource extends Resource
 
     protected static ?string $navigationIcon = 'heroicon-o-rectangle-stack';
 
+    public static function canAccess(): bool
+    {
+        return auth()->user()->role === 'admin';
+    }
+
     public static function form(Form $form): Form
     {
         return $form
@@ -34,6 +39,7 @@ class UserResource extends Resource
                     ->options([
                         'buyer' => 'Buyer',
                         'seller' => 'Seller',
+                        'admin' => 'Admin',
                     ])
                     ->required(),
                 Forms\Components\Toggle::make('is_verified')

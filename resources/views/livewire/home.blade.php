@@ -81,12 +81,15 @@ new class extends Component
             @foreach($featuredProperties as $property)
                 <a href="{{ route('property.detail', ['propertyId' => $property->id]) }}" class="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm hover:shadow-xl transition-all duration-300 group flex flex-col">
                     <div class="relative h-64 bg-slate-200 overflow-hidden">
-                        {{-- Dummy Image Placeholder --}}
-                        <div class="absolute inset-0 bg-slate-300 flex items-center justify-center">
-                            <svg class="w-12 h-12 text-slate-400 group-hover:scale-110 transition-transform duration-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M3 9.5L12 3l9 6.5V21H3V9.5z"/>
-                            </svg>
-                        </div>
+                        @if(!empty($property->images) && count($property->images) > 0)
+                            <img src="{{ Storage::url($property->images[0]) }}" alt="{{ $property->title }}" class="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500">
+                        @else
+                            <div class="absolute inset-0 bg-slate-300 flex items-center justify-center">
+                                <svg class="w-12 h-12 text-slate-400 group-hover:scale-110 transition-transform duration-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M3 9.5L12 3l9 6.5V21H3V9.5z"/>
+                                </svg>
+                            </div>
+                        @endif
                         <div class="absolute top-4 left-4">
                             <span class="px-3 py-1 bg-white/90 backdrop-blur-sm text-xs font-bold uppercase tracking-wider text-slate-800 rounded-full shadow-sm">
                                 {{ $property->property_type }}

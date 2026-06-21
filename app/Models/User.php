@@ -75,10 +75,6 @@ class User extends Authenticatable implements FilamentUser
      */
     public function canAccessPanel(Panel $panel): bool
     {
-        // Option A: Use your role column (Recommended)
-        // return $this->role === 'admin';
-        
-        // Option B: Hardcode the email you just created in Tinker
-        return true;
+        return in_array($this->role, ['admin', 'seller']);
     }
 }
