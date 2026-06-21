@@ -1,0 +1,282 @@
+openapi: 3.0.3
+info:
+  title: Aqary Chatbot Phase 2 Slot Collection Contract
+  version: 1.0.0
+  description: Contract extension for authenticated chat slot collection, grouped optional preferences, clarification, and cash-only redirects.
+paths:
+  /api/chat:
+    post:
+      summary: Send a chat message for slot collection
+      description: Accepts an authenticated buyer message and returns the chatbot reply plus Phase 2 slot-collection state indicators.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChatRequest'
+      responses:
+        '200':
+          description: Chat turn processed successfully or with a friendly fallback.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ChatResponse'
+        '401':
+          description: Missing or invalid authentication.
+        '403':
+          description: Session belongs to another user.
+        '422':
+          description: Invalid request shape, malformed session identifier, or invalid message content.
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+  schemas:
+    ChatRequest:
+      type: object
+      required:
+        - session_id
+        - message
+      properties:
+        session_id:
+          type: string
+          format: uuid
+        message:
+          type: string
+          minLength: 1
+        context_property_id:
+          type: integer
+          nullable: true
+          description: Optional first-turn property context from a property detail page.
+    ChatResponse:
+      type: object
+      required:
+        - reply
+        - intent
+        - isComplaint
+        - installment_redirect
+        - awaiting_slots
+        - slot_collection
+        - resolved_property_id
+        - properties
+        - show_image_offer
+        - has_more
+        - min_price_fallback
+        - session_id
+      properties:
+        reply:
+          type: string
+        intent:
+          type: string
+          enum:
+            - search_property
+            - property_details
+            - complaint
+            - installment_redirect
+            - chitchat
+            - unclear
+            - system_error
+        isComplaint:
+          type: boolean
+        needsCheckIn:
+          type: boolean
+        installment_redirect:
+          type: boolean
+        awaiting_slots:
+          type: array
+          description: Ordered missing required slots, followed by optional_preferences only when the grouped optional question is due.
+          items:
+            type: string
+            enum:
+              - propertyType
+              - location
+              - price
+              - optional_preferences
+        slot_collection:
+          $ref: '#/components/schemas/SlotCollectionState'
+        resolved_property_id:
+          type: integer
+          nullable: true
+        resolved_by:
+          type: string
+          nullable: true
+          enum:
+            - position
+            - title_match
+            - id_explicit
+        user_reference:
+          type: string
+          nullable: true
+        properties:
+          type: array
+          items:
+            $ref: '#/components/schemas/PropertyReference'
+        show_image_offer:
+          type: boolean
+        has_more:
+          type: boolean
+        min_price_fallback:
+          type: number
+          nullable: true
+        session_id:
+          type: string
+          format: uuid
+        fallback:
+          type: boolean
+          description: True when a friendly fallback was returned after interpretation failure.
+    SlotCollectionState:
+      type: object
+      required:
+        - required_slots
+        - optional_slots
+        - missing_required_slots
+        - next_question_slot
+        - optional_collection_status
+        - search_ready
+      properties:
+        required_slots:
+          type: object
+          required:
+            - propertyType
+            - location
+            - price
+          properties:
+            propertyType:
+              $ref: '#/components/schemas/SlotValue'
+            location:
+              $ref: '#/components/schemas/SlotValue'
+            price:
+              $ref: '#/components/schemas/SlotValue'
+        optional_slots:
+          type: object
+          required:
+            - area
+            - bedrooms
+            - bathrooms
+            - features
+          properties:
+            area:
+              $ref: '#/components/schemas/SlotValue'
+            bedrooms:
+              $ref: '#/components/schemas/SlotValue'
+            bathrooms:
+              $ref: '#/components/schemas/SlotValue'
+            features:
+              $ref: '#/components/schemas/SlotValue'
+        missing_required_slots:
+          type: array
+          items:
+            type: string
+            enum:
+              - propertyType
+              - location
+              - price
+        next_question_slot:
+          type: string
+          nullable: true
+          enum:
+            - propertyType
+            - location
+            - price
+            - optional_preferences
+        optional_collection_status:
+          type: string
+          enum:
+            - not_asked
+            - asked
+            - answered
+            - declined
+            - skipped
+        search_ready:
+          type: boolean
+        budget_currency:
+          type: string
+          nullable: true
+          enum:
+            - EGP
+          description: Currency for the captured maximum budget; omitted-currency numeric budgets default to EGP.
+        clarification:
+          nullable: true
+          allOf:
+            - $ref: '#/components/schemas/ClarificationRequest'
+    SlotValue:
+      type: object
+      required:
+        - value
+        - status
+      properties:
+        value:
+          nullable: true
+          oneOf:
+            - type: string
+            - type: number
+            - type: array
+              items:
+                type: string
+        raw_text:
+          type: string
+          nullable: true
+        currency:
+          type: string
+          nullable: true
+          enum:
+            - EGP
+          description: Present for budget values when currency is known or defaulted.
+        status:
+          type: string
+          enum:
+            - complete
+            - missing
+            - unclear
+            - ambiguous
+            - declined
+    ClarificationRequest:
+      type: object
+      required:
+        - slot_name
+        - reason
+      properties:
+        slot_name:
+          type: string
+          enum:
+            - propertyType
+            - location
+            - price
+            - area
+            - bedrooms
+            - bathrooms
+            - features
+        reason:
+          type: string
+          enum:
+            - unclear
+            - ambiguous
+            - unsupported
+            - invalid_format
+        raw_text:
+          type: string
+          nullable: true
+        candidate_values:
+          type: array
+          items:
+            type: string
+    PropertyReference:
+      type: object
+      required:
+        - id
+        - title
+        - url
+      properties:
+        id:
+          type: integer
+        title:
+          type: string
+          description: Seller-supplied text; clients must render safely.
+        url:
+          type: string
+        position:
+          type: integer
+          minimum: 1

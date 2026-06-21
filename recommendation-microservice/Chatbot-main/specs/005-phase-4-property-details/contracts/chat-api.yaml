@@ -1,0 +1,388 @@
+openapi: 3.0.3
+info:
+  title: Aqary Chatbot Phase 4 Property Details Contract
+  version: 1.0.0
+  description: Contract extension for authenticated property-detail follow-ups, photo galleries, seller contact gating, and property-page context.
+paths:
+  /api/chat:
+    post:
+      summary: Send a chat message with property-detail follow-up support
+      description: Accepts an authenticated buyer message and returns the chatbot reply plus resolved search state, property detail payloads, gallery payloads, explicit contact payloads, and clarification state.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChatRequest'
+      responses:
+        '200':
+          description: Chat turn processed successfully or with a friendly fallback.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ChatResponse'
+        '401':
+          description: Missing or invalid authentication.
+        '403':
+          description: Session belongs to another user.
+        '422':
+          description: Invalid request shape, malformed session identifier, invalid property context, or invalid message content.
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+  schemas:
+    ChatRequest:
+      type: object
+      required:
+        - session_id
+        - message
+      properties:
+        session_id:
+          type: string
+          format: uuid
+        message:
+          type: string
+          minLength: 1
+        context_property_id:
+          type: integer
+          nullable: true
+          description: Optional first-turn property context from a property detail page.
+    ChatResponse:
+      type: object
+      required:
+        - reply
+        - intent
+        - isComplaint
+        - installment_redirect
+        - awaiting_slots
+        - resolved_property_id
+        - properties
+        - search
+        - session_id
+      properties:
+        reply:
+          type: string
+          description: Language-appropriate assistant reply grounded in returned data.
+        intent:
+          type: string
+          enum:
+            - search_property
+            - show_more_results
+            - property_details
+            - show_property_photos
+            - seller_contact
+            - complaint
+            - installment_redirect
+            - chitchat
+            - unclear
+            - system_error
+        isComplaint:
+          type: boolean
+        installment_redirect:
+          type: boolean
+        awaiting_slots:
+          type: array
+          items:
+            type: string
+            enum:
+              - propertyType
+              - location
+              - price
+              - optional_preferences
+              - resolution_clarification
+              - property_reference_clarification
+        resolved_property_id:
+          type: integer
+          nullable: true
+        resolved_by:
+          type: string
+          nullable: true
+          enum:
+            - position
+            - title_match
+            - id_explicit
+            - page_context
+        user_reference:
+          type: string
+          nullable: true
+        property_reference:
+          nullable: true
+          allOf:
+            - $ref: '#/components/schemas/PropertyReferenceState'
+        property_detail:
+          nullable: true
+          allOf:
+            - $ref: '#/components/schemas/PropertyDetail'
+        property_gallery:
+          nullable: true
+          allOf:
+            - $ref: '#/components/schemas/PropertyGallery'
+        seller_contact:
+          nullable: true
+          allOf:
+            - $ref: '#/components/schemas/SellerContact'
+        properties:
+          type: array
+          maxItems: 5
+          description: Current visible ranked search result page. Seller phone numbers are never included.
+          items:
+            $ref: '#/components/schemas/SearchResultItem'
+        search:
+          $ref: '#/components/schemas/SearchState'
+        show_image_offer:
+          type: boolean
+        has_more:
+          type: boolean
+        session_id:
+          type: string
+          format: uuid
+        fallback:
+          type: boolean
+    PropertyReferenceState:
+      type: object
+      required:
+        - status
+        - candidates
+      properties:
+        status:
+          type: string
+          enum:
+            - resolved
+            - ambiguous
+            - missing
+            - stale
+            - unresolved
+        reference_type:
+          type: string
+          nullable: true
+          enum:
+            - position
+            - title
+            - context
+            - explicit_id
+        candidates:
+          type: array
+          maxItems: 5
+          items:
+            $ref: '#/components/schemas/ReferenceCandidate'
+        clarification_prompt:
+          type: string
+          nullable: true
+    ReferenceCandidate:
+      type: object
+      required:
+        - position
+        - property_id
+        - title
+      properties:
+        position:
+          type: integer
+          minimum: 1
+          maximum: 5
+        property_id:
+          type: integer
+        title:
+          type: string
+          description: Seller-supplied text; clients must render safely.
+    PropertyDetail:
+      type: object
+      required:
+        - id
+        - title
+        - url
+        - missing_fields
+      properties:
+        id:
+          type: integer
+        title:
+          type: string
+          description: Seller-supplied text; clients must render safely.
+        url:
+          type: string
+          format: uri-reference
+        price:
+          type: number
+          nullable: true
+        area:
+          type: number
+          nullable: true
+        bedrooms:
+          type: integer
+          nullable: true
+        bathrooms:
+          type: integer
+          nullable: true
+        furnished_status:
+          type: string
+          nullable: true
+        location:
+          type: string
+          nullable: true
+        floor_details:
+          type: string
+          nullable: true
+        map_available:
+          type: boolean
+        features:
+          type: array
+          items:
+            type: string
+        missing_fields:
+          type: array
+          items:
+            type: string
+    PropertyGallery:
+      type: object
+      required:
+        - property_id
+        - has_images
+        - images
+      properties:
+        property_id:
+          type: integer
+        has_images:
+          type: boolean
+        images:
+          type: array
+          items:
+            type: object
+            required:
+              - image_url
+              - display_order
+            properties:
+              image_url:
+                type: string
+                format: uri-reference
+              display_order:
+                type: integer
+                minimum: 1
+              alt_text:
+                type: string
+                nullable: true
+                description: Untrusted display metadata; clients must render safely.
+    SellerContact:
+      type: object
+      required:
+        - property_id
+        - contact_available
+      properties:
+        property_id:
+          type: integer
+        contact_available:
+          type: boolean
+        phone:
+          type: string
+          nullable: true
+          description: Present only for an explicit contact request for one resolved active property.
+        withheld_reason:
+          type: string
+          nullable: true
+          enum:
+            - not_explicit
+            - ambiguous_property
+            - inactive_property
+            - missing_contact
+            - unauthorized
+    SearchState:
+      type: object
+      required:
+        - status
+        - result_count
+        - shown_count
+        - page_size
+        - has_more
+      properties:
+        status:
+          type: string
+          enum:
+            - not_ready
+            - results
+            - no_results
+            - budget_fallback
+            - exhausted
+            - fallback
+        search_id:
+          type: string
+          nullable: true
+        result_count:
+          type: integer
+          minimum: 0
+          maximum: 20
+        shown_count:
+          type: integer
+          minimum: 0
+          maximum: 20
+        page_size:
+          type: integer
+          minimum: 0
+          maximum: 5
+        has_more:
+          type: boolean
+        visible_reference_map:
+          type: array
+          maxItems: 5
+          items:
+            type: object
+            required:
+              - position
+              - listing_id
+            properties:
+              position:
+                type: integer
+                minimum: 1
+                maximum: 5
+              listing_id:
+                type: integer
+    SearchResultItem:
+      type: object
+      required:
+        - id
+        - title
+        - url
+        - position
+        - rank_position
+      properties:
+        id:
+          type: integer
+        title:
+          type: string
+          description: Seller-supplied text; clients must render safely.
+        url:
+          type: string
+          format: uri-reference
+        position:
+          type: integer
+          minimum: 1
+          maximum: 5
+        rank_position:
+          type: integer
+          minimum: 1
+          maximum: 20
+        price:
+          type: number
+          nullable: true
+        area:
+          type: number
+          nullable: true
+        bedrooms:
+          type: integer
+          nullable: true
+        bathrooms:
+          type: integer
+          nullable: true
+        furnished_status:
+          type: string
+          nullable: true
+        location:
+          type: string
+          nullable: true
+        cover_image_url:
+          type: string
+          nullable: true
+          format: uri-reference
+        has_cover_image:
+          type: boolean

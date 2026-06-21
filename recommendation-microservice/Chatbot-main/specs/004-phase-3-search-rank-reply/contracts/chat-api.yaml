@@ -1,0 +1,531 @@
+openapi: 3.0.3
+info:
+  title: Aqary Chatbot Phase 3 Search, Rank, and Reply Contract
+  version: 1.0.0
+  description: Contract extension for authenticated ranked property search, pagination, and budget fallback replies.
+paths:
+  /api/chat:
+    post:
+      summary: Send a chat message with resolver-backed search and result pagination
+      description: Accepts an authenticated buyer message and returns the chatbot reply plus resolved slot state, ranked result summaries, show-more state, and budget fallback data.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChatRequest'
+      responses:
+        '200':
+          description: Chat turn processed successfully or with a friendly fallback.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ChatResponse'
+        '401':
+          description: Missing or invalid authentication.
+        '403':
+          description: Session belongs to another user.
+        '422':
+          description: Invalid request shape, malformed session identifier, unresolved required criteria, or invalid message content.
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+  schemas:
+    ChatRequest:
+      type: object
+      required:
+        - session_id
+        - message
+      properties:
+        session_id:
+          type: string
+          format: uuid
+        message:
+          type: string
+          minLength: 1
+        context_property_id:
+          type: integer
+          nullable: true
+          description: Optional first-turn property context from a property detail page.
+    ChatResponse:
+      type: object
+      required:
+        - reply
+        - intent
+        - isComplaint
+        - installment_redirect
+        - awaiting_slots
+        - slot_collection
+        - resolution
+        - resolved_property_id
+        - properties
+        - search
+        - show_image_offer
+        - has_more
+        - min_price_fallback
+        - session_id
+      properties:
+        reply:
+          type: string
+          description: Language-appropriate assistant reply grounded in returned data.
+        intent:
+          type: string
+          enum:
+            - search_property
+            - show_more_results
+            - property_details
+            - complaint
+            - installment_redirect
+            - chitchat
+            - unclear
+            - system_error
+        isComplaint:
+          type: boolean
+        needsCheckIn:
+          type: boolean
+        installment_redirect:
+          type: boolean
+        awaiting_slots:
+          type: array
+          description: Ordered missing slots or clarification targets. Search does not run while required values remain here.
+          items:
+            type: string
+            enum:
+              - propertyType
+              - location
+              - price
+              - optional_preferences
+              - resolution_clarification
+        slot_collection:
+          $ref: '#/components/schemas/SlotCollectionState'
+        resolution:
+          $ref: '#/components/schemas/ResolutionState'
+        resolved_property_id:
+          type: integer
+          nullable: true
+        resolved_by:
+          type: string
+          nullable: true
+          enum:
+            - position
+            - title_match
+            - id_explicit
+        user_reference:
+          type: string
+          nullable: true
+        properties:
+          type: array
+          maxItems: 5
+          description: Current visible ranked search result page. Seller phone numbers are never included.
+          items:
+            $ref: '#/components/schemas/SearchResultItem'
+        search:
+          $ref: '#/components/schemas/SearchState'
+        show_image_offer:
+          type: boolean
+          description: True when the assistant should offer photo viewing as a next step for shown properties.
+        has_more:
+          type: boolean
+          description: True when additional retained ranked results remain after the current visible page.
+        min_price_fallback:
+          type: number
+          nullable: true
+          description: Minimum available same-scope active cash listing price when no listing fits the budget window.
+        session_id:
+          type: string
+          format: uuid
+        fallback:
+          type: boolean
+          description: True when a friendly fallback was returned after interpretation, search, or reply failure.
+    SlotCollectionState:
+      type: object
+      required:
+        - required_slots
+        - optional_slots
+        - missing_required_slots
+        - next_question_slot
+        - optional_collection_status
+        - search_ready
+      properties:
+        required_slots:
+          type: object
+          required:
+            - propertyType
+            - location
+            - price
+          properties:
+            propertyType:
+              $ref: '#/components/schemas/SlotValue'
+            location:
+              $ref: '#/components/schemas/SlotValue'
+            price:
+              $ref: '#/components/schemas/SlotValue'
+        optional_slots:
+          type: object
+          required:
+            - area
+            - bedrooms
+            - bathrooms
+            - features
+          properties:
+            area:
+              $ref: '#/components/schemas/SlotValue'
+            bedrooms:
+              $ref: '#/components/schemas/SlotValue'
+            bathrooms:
+              $ref: '#/components/schemas/SlotValue'
+            features:
+              $ref: '#/components/schemas/SlotValue'
+        missing_required_slots:
+          type: array
+          items:
+            type: string
+            enum:
+              - propertyType
+              - location
+              - price
+        next_question_slot:
+          type: string
+          nullable: true
+          enum:
+            - propertyType
+            - location
+            - price
+            - optional_preferences
+            - resolution_clarification
+        optional_collection_status:
+          type: string
+          enum:
+            - not_asked
+            - asked
+            - answered
+            - declined
+            - skipped
+        search_ready:
+          type: boolean
+          description: True only when required slots are complete and required resolution outcomes are resolved.
+        budget_currency:
+          type: string
+          nullable: true
+          enum:
+            - EGP
+    SlotValue:
+      type: object
+      required:
+        - value
+        - status
+      properties:
+        value:
+          nullable: true
+          oneOf:
+            - type: string
+            - type: number
+            - type: array
+              items:
+                type: string
+        raw_text:
+          type: string
+          nullable: true
+        canonical_id:
+          type: integer
+          nullable: true
+        canonical_name:
+          type: string
+          nullable: true
+        currency:
+          type: string
+          nullable: true
+          enum:
+            - EGP
+        status:
+          type: string
+          enum:
+            - complete
+            - missing
+            - unclear
+            - ambiguous
+            - declined
+            - resolved
+            - unresolved
+    ResolutionState:
+      type: object
+      required:
+        - outcomes
+        - pending_clarification
+      properties:
+        outcomes:
+          type: object
+          properties:
+            location:
+              $ref: '#/components/schemas/ResolutionOutcome'
+            propertyType:
+              $ref: '#/components/schemas/ResolutionOutcome'
+            features:
+              type: array
+              items:
+                $ref: '#/components/schemas/ResolutionOutcome'
+        pending_clarification:
+          nullable: true
+          allOf:
+            - $ref: '#/components/schemas/ResolutionClarification'
+        review_item_ids:
+          type: array
+          items:
+            type: integer
+    ResolutionOutcome:
+      type: object
+      required:
+        - preference_type
+        - status
+        - raw_text
+        - candidates
+      properties:
+        preference_type:
+          type: string
+          enum:
+            - location
+            - propertyType
+            - features
+        status:
+          type: string
+          enum:
+            - resolved
+            - ambiguous
+            - unresolved
+        raw_text:
+          type: string
+          nullable: true
+        canonical_id:
+          type: integer
+          nullable: true
+        canonical_name:
+          type: string
+          nullable: true
+        resolved_by:
+          type: string
+          nullable: true
+          enum:
+            - exact
+            - alias
+            - synonym
+            - normalization
+            - clarification
+        candidates:
+          type: array
+          maxItems: 3
+          items:
+            $ref: '#/components/schemas/ResolutionCandidate'
+        optional_blocking:
+          type: boolean
+    ResolutionCandidate:
+      type: object
+      required:
+        - canonical_id
+        - canonical_name
+        - preference_type
+        - display_order
+      properties:
+        canonical_id:
+          type: integer
+        canonical_name:
+          type: string
+        preference_type:
+          type: string
+          enum:
+            - location
+            - propertyType
+            - features
+        match_reason:
+          type: string
+          nullable: true
+          enum:
+            - exact
+            - alias
+            - synonym
+            - similarity
+            - translation
+        display_order:
+          type: integer
+          minimum: 1
+          maximum: 3
+    ResolutionClarification:
+      type: object
+      required:
+        - preference_type
+        - reason
+        - candidates
+      properties:
+        preference_type:
+          type: string
+          enum:
+            - location
+            - propertyType
+            - features
+        reason:
+          type: string
+          enum:
+            - ambiguous
+            - unresolved
+            - unsupported
+        raw_text:
+          type: string
+          nullable: true
+        candidates:
+          type: array
+          maxItems: 3
+          items:
+            $ref: '#/components/schemas/ResolutionCandidate'
+    SearchState:
+      type: object
+      required:
+        - status
+        - result_count
+        - shown_count
+        - page_size
+        - has_more
+      properties:
+        status:
+          type: string
+          enum:
+            - not_ready
+            - results
+            - no_results
+            - budget_fallback
+            - exhausted
+            - fallback
+        search_id:
+          type: string
+          nullable: true
+          description: Stable identifier for the current retained ranked result set.
+        result_count:
+          type: integer
+          minimum: 0
+          maximum: 20
+          description: Number of retained ranked results available for browsing.
+        shown_count:
+          type: integer
+          minimum: 0
+          maximum: 20
+        page_size:
+          type: integer
+          minimum: 0
+          maximum: 5
+        has_more:
+          type: boolean
+        visible_reference_map:
+          type: array
+          maxItems: 5
+          items:
+            type: object
+            required:
+              - position
+              - listing_id
+            properties:
+              position:
+                type: integer
+                minimum: 1
+                maximum: 5
+              listing_id:
+                type: integer
+        min_price_fallback:
+          nullable: true
+          allOf:
+            - $ref: '#/components/schemas/BudgetFallback'
+    SearchResultItem:
+      type: object
+      required:
+        - id
+        - title
+        - url
+        - position
+        - rank_position
+      properties:
+        id:
+          type: integer
+        title:
+          type: string
+          description: Seller-supplied text; clients must render safely.
+        url:
+          type: string
+          format: uri-reference
+        position:
+          type: integer
+          minimum: 1
+          maximum: 5
+          description: Position within the current visible result page.
+        rank_position:
+          type: integer
+          minimum: 1
+          maximum: 20
+        price:
+          type: number
+          nullable: true
+        area:
+          type: number
+          nullable: true
+        bedrooms:
+          type: integer
+          nullable: true
+        bathrooms:
+          type: integer
+          nullable: true
+        furnished_status:
+          type: string
+          nullable: true
+        location:
+          type: string
+          nullable: true
+        cover_image_url:
+          type: string
+          nullable: true
+          format: uri-reference
+        has_cover_image:
+          type: boolean
+        matched_features:
+          type: array
+          items:
+            type: string
+        score:
+          $ref: '#/components/schemas/RankingScore'
+    RankingScore:
+      type: object
+      description: Optional diagnostics for review and tests; not required for buyer display.
+      properties:
+        total_score:
+          type: number
+        price_score:
+          type: number
+        area_score:
+          type: number
+        bedroom_score:
+          type: number
+        bathroom_score:
+          type: number
+        feature_score:
+          type: number
+        promotion_boost:
+          type: number
+          maximum: 5
+    BudgetFallback:
+      type: object
+      required:
+        - minimum_available_price
+        - scope_location
+        - scope_property_type
+      properties:
+        minimum_available_price:
+          type: number
+        scope_location:
+          type: string
+        scope_property_type:
+          type: string
+        stated_max_budget:
+          type: number
+          nullable: true
+        available_listing_count_in_scope:
+          type: integer
+          minimum: 1
