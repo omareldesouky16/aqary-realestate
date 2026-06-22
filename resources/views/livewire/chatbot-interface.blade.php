@@ -134,7 +134,7 @@ new class extends Component {
                                             </div>
                                             <div class="flex justify-between items-center text-xs font-semibold">
                                                 <span>{{ number_format($prop['price']) }} EGP</span>
-                                                <span class="bg-indigo-100 text-indigo-800 px-2 py-0.5 rounded">{{ $prop['property_type'] }}</span>
+                                                <span class="bg-indigo-100 text-indigo-800 px-2 py-0.5 rounded">{{ $prop['property_type'] ?? 'N/A' }}</span>
                                             </div>
                                         </div>
                                     @endforeach
