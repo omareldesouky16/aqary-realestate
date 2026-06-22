@@ -18,8 +18,10 @@
                     <a href="{{ route('properties') }}" class="text-sm font-medium text-gray-600 hover:text-indigo-600">Browse Properties</a>
                     @auth
                         <a href="{{ route('profile.edit') }}" class="text-sm font-medium text-gray-600 hover:text-indigo-600">Profile</a>
-                        @if(in_array(auth()->user()->role, ['admin', 'seller']))
+                        @if(auth()->user()->role === 'admin')
                             <a href="/admin" class="text-sm font-bold bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700">Dashboard</a>
+                        @elseif(auth()->user()->role === 'seller')
+                            <a href="/admin/properties" class="text-sm font-bold bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700">Dashboard</a>
                         @endif
                         <form method="POST" action="{{ route('logout') }}" class="inline">
                             @csrf
