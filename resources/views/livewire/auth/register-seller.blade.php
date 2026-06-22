@@ -29,7 +29,7 @@ new class extends Component {
 
         Auth::login($user);
 
-        return redirect()->intended('/admin');
+        return redirect()->intended('/admin/properties');
     }
 }; ?>
 

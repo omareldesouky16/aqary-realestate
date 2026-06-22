@@ -19,8 +19,10 @@ new class extends Component {
             session()->regenerate();
             
             $user = Auth::user();
-            if (in_array($user->role, ['admin', 'seller'])) {
+            if ($user->role === 'admin') {
                 return redirect()->intended('/admin');
+            } elseif ($user->role === 'seller') {
+                return redirect()->intended('/admin/properties');
             }
             
             return redirect()->intended('/');
